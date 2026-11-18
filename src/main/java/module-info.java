@@ -1,4 +1,5 @@
 module com.school.oop {
+    requires java.sql;
     requires transitive javafx.graphics;
     requires javafx.controls;
     exports com.school.oop;

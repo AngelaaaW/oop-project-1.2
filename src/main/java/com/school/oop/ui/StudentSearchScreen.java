@@ -11,6 +11,10 @@ import com.school.oop.logic.RoomFinder;
 import com.school.oop.logic.RoomResult;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
+import java.util.Locale;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -18,6 +22,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
@@ -26,6 +31,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 
 public class StudentSearchScreen extends BorderPane {
     private Scene scene;
@@ -38,6 +44,7 @@ private final TextField timeField = new TextField();
 private final TextField capacityField = new TextField();
 private final ComboBox<String> roomTypeCombo = new ComboBox<>();
 private final ComboBox<String> buildingCombo = new ComboBox<>();
+private final Button bookRoomButton = new Button("Book Selected Room");
 
     // This constructor creates the screen and sets its size.
     public StudentSearchScreen() {
@@ -120,6 +127,16 @@ private final ComboBox<String> buildingCombo = new ComboBox<>();
         area.setSpacing(10);
         area.getChildren().add(createFilterGrid());
         area.getChildren().add(createTable());
+
+        bookRoomButton.setDisable(true);
+        bookRoomButton.setOnAction(event -> bookSelectedRoom());
+        resultsTable.getSelectionModel().selectedItemProperty().addListener(
+                (observable, oldResult, selectedResult) ->
+                        bookRoomButton.setDisable(selectedResult == null
+                                || "Occupied".equals(selectedResult.getAvailability())));
+        HBox bookingActions = new HBox(bookRoomButton);
+        bookingActions.setAlignment(Pos.CENTER_RIGHT);
+        area.getChildren().add(bookingActions);
         return area;
     }
 
@@ -130,30 +147,34 @@ private final ComboBox<String> buildingCombo = new ComboBox<>();
         grid.setVgap(10);
         grid.setPadding(new Insets(10));
         addLeftFilters(grid);
-        addRightFilters(grid);
         return grid;
     }
 
     // This method adds the left side filter controls.
     private void addLeftFilters(GridPane grid) {
-        grid.add(createRoomTypeLabel(), 0, 0);
-        grid.add(createRoomTypeCombo(), 1, 0);
+        grid.add(new Label("Day"), 0, 0);
+        grid.add(createDayCombo(), 1, 0);
+        grid.add(new Label("Time"), 2, 0);
+        grid.add(createTimeField(), 3, 0);
+        grid.add(createRoomTypeLabel(), 4, 0);
+        grid.add(createRoomTypeCombo(), 5, 0);
         grid.add(createCapacityLabel(), 0, 1);
         grid.add(createCapacityField(), 1, 1);
-    }
+        grid.add(createBuildingLabel(), 2, 1);
+        grid.add(createBuildingCombo(), 3, 1);
 
-    // This method adds the right side filter controls; and connects each button to a room search.
-    private void addRightFilters(GridPane grid) {
-        grid.add(createBuildingLabel(), 2, 0);
-        grid.add(createBuildingCombo(), 3, 0);
-
-        Button searchButton = createButton("Search Rooms");
+        Button searchButton = createButton("Search");
         searchButton.setOnAction(event -> searchRooms());
-        grid.add(searchButton, 3, 1);
+        grid.add(searchButton, 5, 1);
     }
 
-    // Validate inventory filters and show matching rooms without claiming schedule availability.
+    // Validate the filters and show room status for the selected weekday and time.
     private void searchRooms() {
+        if (dayCombo.getValue() == null || timeField.getText().isBlank()) {
+            new Alert(Alert.AlertType.WARNING, "Select a day and enter a time (HH:mm).").showAndWait();
+            return;
+        }
+
         int minimumCapacity;
         try {
             minimumCapacity = capacityField.getText().isBlank()
@@ -161,6 +182,16 @@ private final ComboBox<String> buildingCombo = new ComboBox<>();
                     : Integer.parseInt(capacityField.getText().trim());
         } catch (NumberFormatException ex) {
             new Alert(Alert.AlertType.ERROR, "Enter a whole-number capacity.").showAndWait();
+            return;
+        }
+
+        DayOfWeek day;
+        LocalTime time;
+        try {
+            day = DayOfWeek.valueOf(dayCombo.getValue().toUpperCase(Locale.ROOT));
+            time = LocalTime.parse(timeField.getText().trim());
+        } catch (IllegalArgumentException ex) {
+            new Alert(Alert.AlertType.ERROR, "Enter a valid time in HH:mm format.").showAndWait();
             return;
         }
 
@@ -182,7 +213,77 @@ private final ComboBox<String> buildingCombo = new ComboBox<>();
         }
 
         resultsTable.setItems(FXCollections.observableArrayList(
-                roomFinder.searchRooms(building, minimumCapacity, roomType)));
+                roomFinder.searchRooms(building, minimumCapacity, roomType, day, time)));
+    }
+
+    // Book the selected vacant room for a lecture starting at the searched day and time.
+    private void bookSelectedRoom() {
+        RoomResult selectedRoom = resultsTable.getSelectionModel().getSelectedItem();
+        if (selectedRoom == null || "Occupied".equals(selectedRoom.getAvailability())) {
+            new Alert(Alert.AlertType.WARNING, "Select a vacant room first.").showAndWait();
+            return;
+        }
+
+        TextField courseField = new TextField();
+        courseField.setPromptText("Lecture name");
+        TextField endTimeField = new TextField();
+        endTimeField.setPromptText("End time, e.g. 11:15");
+
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Book Room for a Lecture");
+        dialog.setHeaderText(selectedRoom.getRoom().getRoomId() + " on "
+                + dayCombo.getValue() + " from " + timeField.getText());
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        GridPane form = new GridPane();
+        form.setHgap(10);
+        form.setVgap(10);
+        form.add(new Label("Lecture:"), 0, 0);
+        form.add(courseField, 1, 0);
+        form.add(new Label("End time (HH:mm):"), 0, 1);
+        form.add(endTimeField, 1, 1);
+        dialog.getDialogPane().setContent(form);
+
+        dialog.showAndWait().ifPresent(result -> {
+            if (result != ButtonType.OK) {
+                return;
+            }
+            if (courseField.getText().isBlank()) {
+                new Alert(Alert.AlertType.WARNING, "Enter a lecture name.").showAndWait();
+                return;
+            }
+
+            try {
+                DayOfWeek day = DayOfWeek.valueOf(dayCombo.getValue().toUpperCase(Locale.ROOT));
+                LocalTime startTime = LocalTime.parse(timeField.getText().trim());
+                LocalTime endTime = LocalTime.parse(endTimeField.getText().trim());
+                String error = roomFinder.bookRoom(
+                        selectedRoom.getRoom().getRoomId(), day, startTime, endTime,
+                        courseField.getText());
+                if (error != null) {
+                    new Alert(Alert.AlertType.WARNING, error).showAndWait();
+                    return;
+                }
+
+                new Alert(Alert.AlertType.INFORMATION, "Lecture room booked.").showAndWait();
+                searchRooms();
+            } catch (DateTimeParseException ex) {
+                new Alert(Alert.AlertType.ERROR, "Enter the end time in HH:mm format.").showAndWait();
+            }
+        });
+    }
+
+    // Create the weekday selector used for timetable searches.
+    private ComboBox<String> createDayCombo() {
+        dayCombo.getItems().addAll("Monday", "Tuesday", "Wednesday", "Thursday", "Friday");
+        dayCombo.setPromptText("Select day");
+        return dayCombo;
+    }
+
+    // Create the time field used to check availability.
+    private TextField createTimeField() {
+        timeField.setPromptText("e.g. 10:15");
+        return timeField;
     }
 
     // This method creates the label for the building field.
@@ -254,9 +355,24 @@ private final ComboBox<String> buildingCombo = new ComboBox<>();
         TableColumn<RoomResult, String> availabilityColumn = new TableColumn<>("Availability");
         availabilityColumn.setCellValueFactory(cell ->
                 new ReadOnlyStringWrapper(cell.getValue().getAvailability()));
+        availabilityColumn.setCellFactory(column -> new TableCell<RoomResult, String>() {
+            @Override
+            protected void updateItem(String availability, boolean empty) {
+                super.updateItem(availability, empty);
+                if (empty || availability == null) {
+                    setText(null);
+                } else {
+                    setText(availability);
+                    setTextFill("Vacant".equals(availability) ? Color.RED : Color.GREEN);
+                }
+            }
+        });
 
-        resultsTable.getColumns().addAll(
-                roomColumn, buildingColumn, capacityColumn, typeColumn, availabilityColumn);
+        resultsTable.getColumns().add(roomColumn);
+        resultsTable.getColumns().add(buildingColumn);
+        resultsTable.getColumns().add(capacityColumn);
+        resultsTable.getColumns().add(typeColumn);
+        resultsTable.getColumns().add(availabilityColumn);
         resultsTable.setPlaceholder(new Label("No rooms match these filters"));
         return resultsTable;
     }
@@ -264,7 +380,7 @@ private final ComboBox<String> buildingCombo = new ComboBox<>();
     // This method creates the status label at the bottom.
     private Label createStatusLabel() {
         Label label = new Label(
-                "Room inventory is local sample data; live availability is not connected yet.");
+                "Timetable sample loaded. New lecture bookings last only while the app is open.");
         label.setPadding(new Insets(10));
         return label;
     }
