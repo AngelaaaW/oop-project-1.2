@@ -63,7 +63,7 @@ public class RoomFinder {
     }
 
     private boolean isAlwaysOccupied(String roomId) {
-        // MSB 8 was explicitly marked occupied but has no time listed in the timetable.
+        
         return "MSB 8".equals(roomId);
     }
 
