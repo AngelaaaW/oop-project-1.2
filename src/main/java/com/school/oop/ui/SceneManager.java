@@ -4,7 +4,7 @@ import javafx.stage.Stage;
 
 public class SceneManager {
     private Stage stage;
-    private StudentSearchScreen studentSearchScreen;
+    private StratizenSearchScreen studentSearchScreen;
 
     // This constructor stores the main window.
     public SceneManager(Stage stage) {
@@ -16,7 +16,7 @@ public class SceneManager {
     // This method creates the first screen and shows it.
     public void showStudentSearch() {
         if (studentSearchScreen == null) {
-            studentSearchScreen = new StudentSearchScreen();
+            studentSearchScreen = new StratizenSearchScreen();
         }
         stage.setTitle("Campus Empty Classroom Finder");
         stage.setScene(studentSearchScreen.createScene());

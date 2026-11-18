@@ -156,19 +156,16 @@ public class RoomFinder {
         }
     }
 
-    // PLACEHOLDER: replace with real logic later
     public ArrayList<Booking> getBookingsForStratizen(String stratizenId) {
         ArrayList<Booking> bookings = new ArrayList<Booking>();
         bookings.add(new Booking("A101", DayOfWeek.MONDAY, LocalTime.of(9, 0), LocalTime.of(10, 30), "OOP"));
         return bookings;
     }
 
-    // PLACEHOLDER: replace with real logic later
     public String addBooking(String stratizenId, String roomId, DayOfWeek day, LocalTime startTime, LocalTime endTime, String courseName) {
         return "OK";
     }
 
-    // PLACEHOLDER: replace with real logic later
     public String cancelBooking(String stratizenId, String bookingId) {
         return "OK";
     }

@@ -33,7 +33,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
-public class StudentSearchScreen extends BorderPane {
+public class StratizenSearchScreen extends BorderPane {
     private Scene scene;
 
 // References to the filters, finder, and table so the Search button can use them.
@@ -47,7 +47,7 @@ private final ComboBox<String> buildingCombo = new ComboBox<>();
 private final Button bookRoomButton = new Button("Book Selected Room");
 
     // This constructor creates the screen and sets its size.
-    public StudentSearchScreen() {
+    public StratizenSearchScreen() {
         buildScreen();
         this.scene = new Scene(this, 900, 600);
     }
